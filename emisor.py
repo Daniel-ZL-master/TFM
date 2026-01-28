@@ -11,9 +11,9 @@ import socket
 import time
 
 # GENERATION OF SIGNAL VARIABLES
-SAMPLING_RATE = 4 #Hz
-DURATION = 60 #Seconds
-N_SCR = 5
+SAMPLING_RATE = 100 #Hz
+DURATION = 360 #Seconds
+N_SCR = 60
 
 # TRANSMISION VARIABLES
 HOST = '127.0.0.1'
@@ -31,7 +31,7 @@ def transmision_simulator():
             s.connect((HOST, PORT)) # connect to the host port tuple
             
             for value in eda_signal:
-                message = f"{value:.4f}"
+                message = f"{value:.4f}\n"
                 s.sendall(message.encode('utf-8'))
                 
                 # sampling rate sleep
