@@ -65,6 +65,8 @@ def reciver():
                                 signal_array = np.array(raw_data)
                                 signals, info = nk.eda_process(signal_array, sampling_rate=SAMPLING_RATE)
                                 
+                                #Here goes the send process of info for each peak and the peak detection
+
                                 #Update graph
                                 line_raw.set_ydata(signal_array)
                                 line_tonic.set_ydata(signals["EDA_Tonic"])
