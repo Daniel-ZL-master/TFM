@@ -10,6 +10,7 @@ el emisor
 """
 
 from collections import deque
+import json
 import matplotlib.pyplot as plt
 import neurokit2 as nk
 import numpy as np
@@ -17,7 +18,8 @@ import socket
 
 def reciver():
     HOST = '127.0.0.1'
-    PORT = 65432
+    PORT_IN = 65432
+    PORT_OUT = 65433
     SAMPLING_RATE = 100 #Hz
     WINDOW_TIME = 15 #Secs
     MAX_POINTS = SAMPLING_RATE*WINDOW_TIME
@@ -40,15 +42,22 @@ def reciver():
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
                 
-                s.bind((HOST, PORT))
+                s.bind((HOST, PORT_IN))
                 s.listen(1)
-                print(f"[SYSTEM] Waiting conexion on port {PORT}")
+                print(f"[SYSTEM] Waiting conexion on port {PORT_IN}")
                 
                 conn, addr = s.accept()
                 #Whitelisting for security
                 if addr[0] != "127.0.0.1":
                     conn.close()
                     print(f"[SYSTEM] access dennied to {addr[0]}")
+
+                s_out = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                try:
+                    s_out.connect((HOST, PORT_OUT))
+                    print("[SYSTEM] Connected to final consumer")
+                except:
+                    print("[SYSTEM] Couldn't connect to final consumer, check that is starterd")
                 
                 with conn:
                     print(f"[SYSTEM] Connected to {addr}")
@@ -61,11 +70,20 @@ def reciver():
                             raw_data.append(value)
                             counter += 1
                             
-                            if counter%10 == 0:
+                            if counter%100 == 0:
                                 signal_array = np.array(raw_data)
                                 signals, info = nk.eda_process(signal_array, sampling_rate=SAMPLING_RATE)
                                 
                                 #Here goes the send process of info for each peak and the peak detection
+                                characteristics = {
+                                    "raw_segment" : signal_array.tolist(),
+                                    "tonic_start" : float(signals["EDA_Tonic"].iloc[0]),
+                                    "tonic_end": float(signals["EDA_Tonic"].iloc[-1]),
+                                    "peak_indexes": [int(i) for i in np.where(signals["SCR_Peaks"] == 1)[0]],
+                                    "peaks_amplitudes": signals["SCR_Amplitude"][signals["SCR_Peaks"] == 1].tolist()
+                                    }
+                                message = json.dumps(characteristics) + "\n"
+                                s_out.sendall(message.encode('utf-8'))
 
                                 #Update graph
                                 line_raw.set_ydata(signal_array)
@@ -73,7 +91,7 @@ def reciver():
                                 line_phasic.set_ydata(signals["EDA_Phasic"])
                                 ax1.set_ylim(min(signal_array)-0.5, max(signal_array)+0.5)
                                 plt.pause(0.001)
-                            
+                                
                         except Exception as e:
                             print(f"[ERROR] error processing {e}")
                             continue
