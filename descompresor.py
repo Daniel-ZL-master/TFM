@@ -5,8 +5,7 @@
 Created on Mon Feb 2 12:51:03 2026
 
 @author: da
-TO-DO: Crear el código del descompresor que reciba la información del receptor y la
-procese para extraer los picos y enviarlos a un archivo o base de datos.
+TO-DO: Cambiar reconstruccion de phasic
 """
 
 import socket
@@ -36,7 +35,7 @@ def descompresor():
             reconstructed = np.linspace(data['tonic_start'], data['tonic_end'], n)
             
             # add phasic peaks
-            for idx, amp in zip(data['peaks_indices'], data['peaks_amplitudes']):
+            for idx, amp in zip(data['peak_indexes'], data['peaks_amps']):
                 if not np.isnan(amp):
                     # Simulamos un pico simple (una función impulso suavizada)
                     reconstructed[idx:idx+20] += amp 

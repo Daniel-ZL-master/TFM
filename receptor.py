@@ -80,7 +80,7 @@ def reciver():
                                     "tonic_start" : float(signals["EDA_Tonic"].iloc[0]),
                                     "tonic_end": float(signals["EDA_Tonic"].iloc[-1]),
                                     "peak_indexes": [int(i) for i in np.where(signals["SCR_Peaks"] == 1)[0]],
-                                    "peaks_amplitudes": signals["SCR_Amplitude"][signals["SCR_Peaks"] == 1].tolist()
+                                    "peaks_amps": signals["SCR_Amplitude"][signals["SCR_Peaks"] == 1].tolist()
                                     }
                                 message = json.dumps(characteristics) + "\n"
                                 s_out.sendall(message.encode('utf-8'))
