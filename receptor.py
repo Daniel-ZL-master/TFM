@@ -67,20 +67,23 @@ def reciver():
                     for line in socket_file:
                         try:
                             value = float(line.strip())
-                            raw_data.append(value)
+                            raw_data.append(int(value))
                             counter += 1
                             
                             if counter%100 == 0:
                                 signal_array = np.array(raw_data)
                                 signals, info = nk.eda_process(signal_array, sampling_rate=SAMPLING_RATE)
                                 
+                                index_peaks = np.where(signals["SCR_Peaks" == 1])[0]
+                                all_amps = np.array(signals["SCR_Amplitude"])
+                                amps = all_amps[index_peaks]
+
                                 #Here goes the send process of info for each peak and the peak detection
                                 characteristics = {
                                     "raw_segment" : signal_array.tolist(),
                                     "tonic_start" : float(signals["EDA_Tonic"].iloc[0]),
                                     "tonic_end": float(signals["EDA_Tonic"].iloc[-1]),
-                                    "peak_indexes": [int(i) for i in np.where(signals["SCR_Peaks"] == 1)[0]],
-                                    "peaks_amps": signals["SCR_Amplitude"][signals["SCR_Peaks"] == 1].tolist()
+                                    "peaks": [{"idx":int(i), "amp":float(a)} for i, a in zip(index_peaks, amps) if not np.isnan(a)]
                                     }
                                 message = json.dumps(characteristics) + "\n"
                                 s_out.sendall(message.encode('utf-8'))
