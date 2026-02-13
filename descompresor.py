@@ -13,6 +13,17 @@ import json
 import numpy as np
 import matplotlib.pyplot as plt
 
+def bateman(t, amp ,lambda1=0.75, lambda2=2.0):
+    """
+    Generates the SCR peaks according to bateman function
+    lambda1: controls decay time
+    lambda2: controls rise time
+    """
+    peak = amp * (np.exp(-lambda1*t)-np.exp(-lambda2*t))
+    t_max = np.log(lambda2/lambda1)/(lambda2-lambda1)
+    gain = 1/ (np.exp(-lambda1*t_max)-np.exp(-lambda2*t_max))
+    return peak*gain
+
 def descompresor():
     HOST, PORT = '127.0.0.1', 65433
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
