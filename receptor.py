@@ -80,6 +80,7 @@ def reciver():
 
                                 #Here goes the send process of info for each peak and the peak detection
                                 characteristics = {
+                                    "n_samples" : len(signals),
                                     "raw_segment" : signal_array.tolist(),
                                     "tonic_start" : float(signals["EDA_Tonic"].iloc[0]),
                                     "tonic_end": float(signals["EDA_Tonic"].iloc[-1]),
