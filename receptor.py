@@ -24,7 +24,7 @@ def reciver():
     WINDOW_TIME = 15 #Secs
     MAX_POINTS = SAMPLING_RATE*WINDOW_TIME
     
-    raw_data = deque([0]*MAX_POINTS, maxlen=MAX_POINTS)
+    raw_data = deque([0.0]*MAX_POINTS, maxlen=MAX_POINTS)
     
     #Graph config
     plt.ion()
@@ -67,14 +67,14 @@ def reciver():
                     for line in socket_file:
                         try:
                             value = float(line.strip())
-                            raw_data.append(int(value))
+                            raw_data.append(value)
                             counter += 1
                             
                             if counter%100 == 0:
                                 signal_array = np.array(raw_data)
                                 signals, info = nk.eda_process(signal_array, sampling_rate=SAMPLING_RATE)
                                 
-                                index_peaks = np.where(signals["SCR_Peaks" == 1])[0]
+                                index_peaks = np.where(signals["SCR_Peaks"]==1)[0]
                                 all_amps = np.array(signals["SCR_Amplitude"])
                                 amps = all_amps[index_peaks]
 
