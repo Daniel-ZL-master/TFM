@@ -12,6 +12,7 @@ import socket
 import json
 import numpy as np
 import matplotlib.pyplot as plt
+from numpy._core.function_base import linspace
 
 def bateman(t, amp ,lambda1=0.75, lambda2=2.0):
     """
@@ -42,14 +43,21 @@ def descompresor():
             original = np.array(data['raw_segment'])
             n = len(original)
             
-            # --- RECONSTRUCCIÓN SIMPLIFICADA ---
+            # --- RECONSTRUCCIÓN BATEMAN ---
             reconstructed = np.linspace(data['tonic_start'], data['tonic_end'], n)
-            
+            phasic_synthetic = np.zeros(n) 
             # add phasic peaks
-            for idx, amp in zip(data['peak_indexes'], data['peaks_amps']):
-                if not np.isnan(amp):
-                    # Simulamos un pico simple (una función impulso suavizada)
-                    reconstructed[idx:idx+20] += amp 
+            for p in data['peaks']:
+                idx = p['idx']
+                amp = p['amp']
+                t_peaks = np.linspace(0,4,400)
+                curve = bateman(t_peaks, amp,0.75,3.5)
+                #insert on signal
+                end = min(idx+len(curve),n)
+                available = end - idx #available points to fill on phasic_synthetic array
+                phasic_synthetic[idx:end] += curve[:available]
+
+            reconstructed += phasic_synthetic
 
             # --- CÁLCULO DE PÉRDIDA ---
             error = np.mean((original - reconstructed)**2) # MSE
