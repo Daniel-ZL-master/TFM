@@ -21,7 +21,7 @@ PORT = 65432
 
 def transmision_simulator():
     # generate eda signal to send
-    eda_signal = nk.eda_simulate(duration=DURATION, sampling_rate=SAMPLING_RATE, scr_number=N_SCR)
+    eda_signal = nk.eda_simulate(duration=DURATION, sampling_rate=SAMPLING_RATE, scr_number=N_SCR,noise=0.0)
     
     print("Iniciando simulación y envío...")
     
