@@ -78,41 +78,52 @@ def reciver():
                             value = float(line.strip())
                             raw_data.append(value)
                             counter += 1
-                            
-                            if counter%100 == 0:
+
+                            if counter % 100 == 0:
                                 signal_array = np.array(raw_data)
                                 signals, info = nk.eda_process(signal_array, sampling_rate=SAMPLING_RATE)
-                                
-                                index_peaks = np.where(signals["SCR_Peaks"]==1)[0]
-                                amps = np.array(signals["SCR_Amplitude"])[index_peaks]
+
+                                # Ignoramos los picos que ocurren al final de la ventana
+                                SAFETY_MARGIN = 2 * SAMPLING_RATE
+                                CONFIRMED_LIMIT = MAX_POINTS - SAFETY_MARGIN
+
+                                index_peaks = np.where(signals["SCR_Peaks"] == 1)[0]
+                                index_onsets = np.where(signals["SCR_Onsets"] == 1)[0]
+
                                 optimized_peaks = []
-                                phasic_data = np.array(signals["EDA_Phasic"])
-                                for idx, amp in zip(index_peaks,amps):
-                                    if(np.isnan(amp) or idx+400 > len(phasic_data)):
-                                        continue
-                                    y_real = phasic_data[idx:idx+400]
-                                    t_val = np.linspace(0,4,len(y_real))
+                                for p_idx in index_peaks:
+                                    # Buscamos el onset que ocurrió justo antes del peak_index
+                                    possible_onsets = index_onsets[index_onsets <= p_idx]
 
-                                    try:
-                                        popt, _ = curve_fit(lambda t, l1, l2:bateman_fit(t,amp,l1,l2),t_val,y_real, p0=[0.75, 2.0], bounds=([0.1,1.0],[2.0,5.0]))
-                                        lambda1_opt, lambda2_opt = popt
-                                    except:
-                                        lambda1_opt, lambda2_opt = 0.75, 2.0
+                                    if len(possible_onsets) > 0:
+                                        start_idx = possible_onsets[-1]  # El onset más reciente
+                                    else:
+                                        start_idx = p_idx - 50  # Fallback: 0.5s antes si no hay onset claro
 
-                                
-                                    optimized_peaks.append({
-                                        "idx":int(idx),
-                                        "amp":float(amp),
-                                        "l1":float(lambda1_opt),
-                                        "l2":float(lambda2_opt)
-                                    })
+                                    if start_idx < CONFIRMED_LIMIT and (start_idx + 400 < MAX_POINTS):
+                                        amp = signals["SCR_Amplitude"].iloc[p_idx]
+                                        y_real = signals["EDA_Phasic"].iloc[start_idx: start_idx + 400].values
+
+                                        try:
+                                            # Ajustamos usando start_idx como punto cero del tiempo
+                                            popt, _ = curve_fit(bateman_fit, np.linspace(0, 4, 400), y_real,
+                                                                p0=[amp, 0.75, 2.0])
+
+                                            optimized_peaks.append({
+                                                "idx": int(start_idx),  # Enviamos el ONSET como punto de inicio
+                                                "amp": float(popt[0]),
+                                                "l1": float(popt[1]),
+                                                "l2": float(popt[2])
+                                            })
+                                        except:
+                                            continue
+
                                 characteristics = {
-                                    "n_samples" : len(signals),
-                                    "raw_segment" : signal_array.tolist(),
-                                    "tonic_start" : float(signals["EDA_Tonic"].iloc[0]),
-                                    "tonic_end": float(signals["EDA_Tonic"].iloc[-1]),
-                                    "peaks":optimized_peaks
-                                    }
+                                    "raw_segment": signal_array[:CONFIRMED_LIMIT].tolist(),
+                                    "tonic_start": float(signals["EDA_Tonic"].iloc[0]),
+                                    "tonic_end": float(signals["EDA_Tonic"].iloc[CONFIRMED_LIMIT]),
+                                    "peaks": optimized_peaks
+                                }
                                 message = json.dumps(characteristics) + "\n"
                                 s_out.sendall(message.encode('utf-8'))
 
