@@ -44,33 +44,34 @@ def descompresor():
             n = len(original)
             
             # --- RECONSTRUCCIÓN BATEMAN ---
-            reconstructed = np.linspace(data['tonic_start'], data['tonic_end'], n)
-            phasic_synthetic = np.zeros(n) 
-            # add phasic peaks
+            reconstructed = np.linspace(data['tonic_start'],data['tonic_end'],n)
+            phasic_synthetic = np.zeros(n)
+
             for p in data['peaks']:
-                idx = p['idx']
-                amp = p['amp']
-                t_peaks = np.linspace(0,4,400)
-                curve = bateman(t_peaks, amp,0.75,3.5)
-                #insert on signal
+                idx, amp = p['idx'], p['amp']
+                l1,l2 = p['l1'], p['l2']
+
+                t_peaks = linspace(0,4,400)
+                curve = bateman(t_peaks,amp,l1,l2)
                 end = min(idx+len(curve),n)
-                available = end - idx #available points to fill on phasic_synthetic array
+                available = end - idx
                 phasic_synthetic[idx:end] += curve[:available]
 
             reconstructed += phasic_synthetic
 
             # --- CÁLCULO DE PÉRDIDA ---
-            error = np.mean((original - reconstructed)**2) # MSE
-            loss_percentage = (error / np.var(original)) * 100 if np.var(original) != 0 else 0
+            correlation_matrix = np.corrcoef(original, reconstructed)
+            correlation = correlation_matrix[0, 1]
 
-            print(f"Pérdida de información (MSE): {error:.6f}")
-            print(f"Fidelidad de la señal: {100 - loss_percentage:.2f}%")
+
+
+            print(f"Correlation of Pearson: {correlation:.6f}")
 
             # Comparación visual
             plt.clf()
             plt.plot(original, label='Original (Cruda)', alpha=0.7)
             plt.plot(reconstructed, label='Reconstruida (Params)', linestyle='--')
-            plt.title(f"Reconstrucción vs Realidad - Error: {error:.4f}")
+            plt.title(f"Reconstrucción vs Realidad - Correlation: {correlation:.4f}")
             plt.legend()
             plt.pause(0.1)
 

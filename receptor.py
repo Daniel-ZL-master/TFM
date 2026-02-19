@@ -10,11 +10,20 @@ el emisor
 """
 
 from collections import deque
+from scipy.optimize import curve_fit
 import json
 import matplotlib.pyplot as plt
 import neurokit2 as nk
 import numpy as np
 import socket
+
+def bateman_fit(t, amp, lambda1, lambda2):
+    if lambda2 <= lambda1 or lambda1 <= 0:
+        return np.ones_like(t)*1e6
+    peak = amp * (np.exp(-lambda1*t) - np.exp(-lambda2*t))
+    t_max = np.log(lambda2/lambda1) / (lambda2-lambda1)
+    gain = 1 / (np.exp(-lambda1*t_max) - np.exp(-lambda2*t_max))
+    return peak * gain
 
 def reciver():
     HOST = '127.0.0.1'
@@ -44,20 +53,20 @@ def reciver():
                 
                 s.bind((HOST, PORT_IN))
                 s.listen(1)
-                print(f"[SYSTEM] Waiting conexion on port {PORT_IN}")
+                print(f"[SYSTEM] Waiting connexion on port {PORT_IN}")
                 
                 conn, addr = s.accept()
                 #Whitelisting for security
                 if addr[0] != "127.0.0.1":
                     conn.close()
-                    print(f"[SYSTEM] access dennied to {addr[0]}")
+                    print(f"[SYSTEM] access denied to {addr[0]}")
 
                 s_out = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 try:
                     s_out.connect((HOST, PORT_OUT))
                     print("[SYSTEM] Connected to final consumer")
                 except:
-                    print("[SYSTEM] Couldn't connect to final consumer, check that is starterd")
+                    print("[SYSTEM] Couldn't connect to final consumer, check that is started")
                 
                 with conn:
                     print(f"[SYSTEM] Connected to {addr}")
@@ -75,16 +84,34 @@ def reciver():
                                 signals, info = nk.eda_process(signal_array, sampling_rate=SAMPLING_RATE)
                                 
                                 index_peaks = np.where(signals["SCR_Peaks"]==1)[0]
-                                all_amps = np.array(signals["SCR_Amplitude"])
-                                amps = all_amps[index_peaks]
+                                amps = np.array(signals["SCR_Amplitude"])[index_peaks]
+                                optimized_peaks = []
+                                phasic_data = np.array(signals["EDA_Phasic"])
+                                for idx, amp in zip(index_peaks,amps):
+                                    if(np.isnan(amp) or idx+400 > len(phasic_data)):
+                                        continue
+                                    y_real = phasic_data[idx:idx+400]
+                                    t_val = np.linspace(0,4,len(y_real))
 
-                                #Here goes the send process of info for each peak and the peak detection
+                                    try:
+                                        popt, _ = curve_fit(lambda t, l1, l2:bateman_fit(t,amp,l1,l2),t_val,y_real, p0=[0.75, 2.0], bounds=([0.1,1.0],[2.0,5.0]))
+                                        lambda1_opt, lambda2_opt = popt
+                                    except:
+                                        lambda1_opt, lambda2_opt = 0.75, 2.0
+
+                                
+                                    optimized_peaks.append({
+                                        "idx":int(idx),
+                                        "amp":float(amp),
+                                        "l1":float(lambda1_opt),
+                                        "l2":float(lambda2_opt)
+                                    })
                                 characteristics = {
                                     "n_samples" : len(signals),
                                     "raw_segment" : signal_array.tolist(),
                                     "tonic_start" : float(signals["EDA_Tonic"].iloc[0]),
                                     "tonic_end": float(signals["EDA_Tonic"].iloc[-1]),
-                                    "peaks": [{"idx":int(i), "amp":float(a)} for i, a in zip(index_peaks, amps) if not np.isnan(a)]
+                                    "peaks":optimized_peaks
                                     }
                                 message = json.dumps(characteristics) + "\n"
                                 s_out.sendall(message.encode('utf-8'))
